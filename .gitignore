@@ -1,0 +1,43 @@
+# Dependencies
+dashboard/node_modules/
+
+# Build output
+dashboard/dist/
+
+# Third-party source repos (clone separately)
+trunk-recorder/
+gr-osmosdr/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Environment
+.env
+*.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Recordings (large binary files)
+recordings/
+CCSF/
+*.wav
+*.m4a
+
+# Lock files (keep package-lock.json, ignore bun)
+dashboard/bun.lock
+
+# Logs and data dumps
+*.jsonl
+enrichment_log.json
+incidents_log.json
+radio_feed.json
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo

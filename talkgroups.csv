@@ -1,0 +1,48 @@
+Decimal,Hex,Alpha Tag,Mode,Description,Tag,Category
+804,0324,SFPD Disp A1,D,Police Central Dispatch,Law Dispatch,SFPD
+805,0325,SFPD Disp A2,D,Police Southern Dispatch,Law Dispatch,SFPD
+806,0326,SFPD Disp A3,D,Police Bayview Dispatch,Law Dispatch,SFPD
+807,0327,SFPD Disp A4,D,Police Mission Dispatch,Law Dispatch,SFPD
+808,0328,SFPD Disp A5,D,Police Northern Dispatch,Law Dispatch,SFPD
+809,0329,SFPD Disp A6,D,Police Park Dispatch,Law Dispatch,SFPD
+810,032A,SFPD Disp A7,D,Police Richmond Dispatch,Law Dispatch,SFPD
+811,032B,SFPD Disp A8,D,Police Ingleside Dispatch,Law Dispatch,SFPD
+820,0334,SFPD A9,D,Police Taraval,Law Dispatch,SFPD
+821,0335,SFPD A10,D,Police Tenderloin,Law Dispatch,SFPD
+822,0336,SFPD A11,D,Police A11,Law Tac,SFPD
+823,0337,SFPD A12,D,Police A12,Law Tac,SFPD
+824,0338,SFPD A13,D,Police A13,Law Tac,SFPD
+825,0339,SFPD A14,D,Police A14,Law Tac,SFPD
+835,0343,MutualAid 1,D,Mutual Aid 1,Interop,Mutual Aid
+836,0344,MutualAid 2,D,Mutual Aid 2,Interop,Mutual Aid
+837,0345,MutualAid 3,D,Mutual Aid 3,Interop,Mutual Aid
+838,0346,MutualAid 4,D,Mutual Aid 4,Interop,Mutual Aid
+839,0347,MutualAid 5,D,Mutual Aid 5,Interop,Mutual Aid
+840,0348,MutualAid 6,D,Mutual Aid 6,Interop,Mutual Aid
+850,0352,MutualAid 16,D,Mutual Aid 16,Interop,Mutual Aid
+860,035C,MutualAid 26,D,Mutual Aid 26,Interop,Mutual Aid
+870,0366,MutualAid 36,D,Mutual Aid 36,Interop,Mutual Aid
+880,0370,MutualAid 46,D,Mutual Aid 46,Interop,Mutual Aid
+889,0379,MutualAid Last,D,Mutual Aid Last,Interop,Mutual Aid
+925,039D,SFFD Control,D,Fire Control/Dispatch,Fire Dispatch,SFFD
+926,039E,SFFD Tac A1,D,Fire Tactical A1,Fire-Tac,SFFD
+927,039F,SFFD Tac A2,D,Fire Tactical A2,Fire-Tac,SFFD
+928,03A0,SFFD Tac A3,D,Fire Tactical A3,Fire-Tac,SFFD
+929,03A1,SFFD Tac A4,D,Fire Tactical A4,Fire-Tac,SFFD
+930,03A2,SFFD Tac A5,D,Fire Tactical A5,Fire-Tac,SFFD
+931,03A3,SFFD Tac A6,D,Fire Tactical A6,Fire-Tac,SFFD
+932,03A4,SFFD Tac A7,D,Fire Tactical A7,Fire-Tac,SFFD
+933,03A5,SFFD Tac A8,D,Fire Tactical A8,Fire-Tac,SFFD
+934,03A6,SFFD Tac A9,D,Fire Tactical A9,Fire-Tac,SFFD
+935,03A7,SFFD Tac A10,D,Fire Tactical A10,Fire-Tac,SFFD
+936,03A8,SFFD Tac A11,D,Fire Tactical A11,Fire-Tac,SFFD
+937,03A9,SFFD Tac A12,D,Fire Tactical A12,Fire-Tac,SFFD
+938,03AA,SFFD Tac A13,D,Fire Tactical A13,Fire-Tac,SFFD
+939,03AB,SFFD Tac A14,D,Fire Tactical A14,Fire-Tac,SFFD
+940,03AC,SFFD Tac A15,D,Fire Tactical A15,Fire-Tac,SFFD
+941,03AD,SFFD Tac A16,D,Fire Tactical A16,Fire-Tac,SFFD
+955,03BB,SFFD Support,D,Fire Support,Fire-Tac,SFFD
+959,03BF,EMS Dispatch,D,EMS Dispatch,EMS Dispatch,EMS
+961,03C1,EMS Tac 1,D,EMS Tactical 1,EMS-Tac,EMS
+962,03C2,EMS Tac 2,D,EMS Tactical 2,EMS-Tac,EMS
+985,03D9,EMS Support,D,EMS Support,EMS-Tac,EMS

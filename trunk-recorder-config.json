@@ -1,0 +1,38 @@
+{
+    "ver": 2,
+    "captureDir": "/Users/calinteodor/Development/Hackathon/recordings",
+    "callTimeout": 3,
+    "logLevel": "info",
+    "frequencyFormat": "hz",
+    "controlWarnRate": 10,
+    "sources": [
+        {
+            "center": 852000000,
+            "rate": 2400000,
+            "error": 0,
+            "gain": 49,
+            "digitalRecorders": 2,
+            "driver": "osmosdr",
+            "device": "rtl=0"
+        }
+    ],
+    "systems": [
+        {
+            "shortName": "CCSF",
+            "type": "p25",
+            "talkgroupsFile": "talkgroups.csv",
+            "control_channels": [
+                851250000,
+                851400000,
+                851612500,
+                852062500
+            ],
+            "modulation": "qpsk",
+            "squelch": -160,
+            "minDuration": 0.5,
+            "audioArchive": true,
+            "recordUnknown": true,
+            "callLog": true
+        }
+    ]
+}

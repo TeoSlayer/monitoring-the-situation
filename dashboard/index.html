@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Monitoring the Situation</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
+  </head>
+  <body>
+    <div id="map"></div>
+
+    <!-- Header bar with stats -->
+    <div id="header">
+      <div class="header-left">
+        <span class="header-icon">📡</span>
+        <span class="header-title">MONITORING THE SITUATION</span>
+      </div>
+      <div class="header-stats">
+        <div class="header-stat">
+          <span class="header-stat-value" id="stat-aircraft">0</span>
+          <span class="header-stat-label">AIRCRAFT</span>
+        </div>
+        <div class="header-stat-sep"></div>
+        <div class="header-stat header-stat-clickable" id="open-incidents">
+          <span class="header-stat-value" id="stat-incidents">0</span>
+          <span class="header-stat-label">INCIDENTS</span>
+        </div>
+        <div class="header-stat-sep"></div>
+        <div class="header-stat header-stat-clickable" id="open-channels">
+          <span class="header-stat-value" id="stat-radio">0</span>
+          <span class="header-stat-label">RADIO TX</span>
+        </div>
+        <div class="header-stat-sep"></div>
+        <div class="header-stat">
+          <span class="header-stat-value" id="stat-muni">0</span>
+          <span class="header-stat-label">MUNI</span>
+        </div>
+        <div class="header-stat-sep"></div>
+        <div class="header-stat header-stat-clickable" id="open-telegram">
+          <span class="header-stat-value">✈</span>
+          <span class="header-stat-label">TELEGRAM</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="clock" id="clock"></span>
+        <span class="status-dot live"></span>
+        <span class="status-label">LIVE</span>
+      </div>
+    </div>
+
+    <!-- Selection detail panel (left side, shown when clicking an aircraft) -->
+    <div id="selection-panel"></div>
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <div class="sidebar-section">
+        <h3>RTL-SDR</h3>
+        <div id="sdr-stats"></div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3>FREQUENCY ACTIVITY</h3>
+        <canvas id="freq-plot" width="400" height="150"></canvas>
+      </div>
+
+      <div class="sidebar-section">
+        <h3>LAYERS</h3>
+        <label class="layer-toggle" data-layer="aircraft">
+          <input type="checkbox" checked />
+          <span class="toggle-slider"></span>
+          <span class="layer-name">Aircraft</span>
+          <span class="layer-count" id="aircraft-count">0</span>
+        </label>
+        <label class="layer-toggle" data-layer="dispatch">
+          <input type="checkbox" checked />
+          <span class="toggle-slider"></span>
+          <span class="layer-name">Dispatch</span>
+          <span class="layer-count" id="dispatch-count">0</span>
+        </label>
+        <label class="layer-toggle" data-layer="radio-incidents">
+          <input type="checkbox" checked />
+          <span class="toggle-slider"></span>
+          <span class="layer-name">Radio Incidents</span>
+          <span class="layer-count"></span>
+        </label>
+        <label class="layer-toggle" data-layer="traffic-transit">
+          <input type="checkbox" checked />
+          <span class="toggle-slider"></span>
+          <span class="layer-name">Traffic & Transit</span>
+          <span class="layer-count" id="transit-count">0</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Channel table modal (centered, toggled by header click) -->
+    <div id="channel-modal" class="modal-hidden">
+      <div class="channel-modal-inner">
+        <div class="channel-modal-header">
+          <h3>CHANNEL MONITOR</h3>
+          <button class="channel-modal-close" id="channel-modal-close">&times;</button>
+        </div>
+        <div id="channel-table"></div>
+      </div>
+    </div>
+
+    <!-- Transcript feed panel (left side) -->
+    <div id="transcript-panel">
+      <div class="transcript-panel-header">
+        <h3>RADIO TRANSCRIPTS</h3>
+        <div class="transcript-header-right">
+          <input type="text" id="transcript-search" class="transcript-search" placeholder="Search..." autocomplete="off" />
+          <span class="transcript-count" id="transcript-count">0</span>
+          <button class="transcript-expand-btn" id="transcript-expand" title="Expand">&#x26F6;</button>
+        </div>
+      </div>
+      <div id="transcript-feed"></div>
+    </div>
+
+    <!-- Expanded transcript modal -->
+    <div id="transcript-modal" class="modal-hidden">
+      <div class="transcript-modal-inner">
+        <div class="channel-modal-header">
+          <h3>RADIO TRANSCRIPTS</h3>
+          <button class="channel-modal-close" id="transcript-modal-close">&times;</button>
+        </div>
+        <div id="transcript-filter-grid"></div>
+        <div id="transcript-modal-feed"></div>
+      </div>
+    </div>
+
+    <!-- Incident panel modal -->
+    <div id="incident-modal" class="modal-hidden">
+      <div class="incident-modal-inner">
+        <div class="channel-modal-header">
+          <h3>ACTIVE INCIDENTS</h3>
+          <button class="channel-modal-close" id="incident-modal-close">&times;</button>
+        </div>
+        <div id="incident-list"></div>
+      </div>
+    </div>
+
+    <!-- Incident detail modal -->
+    <div id="incident-detail-modal" class="modal-hidden">
+      <div class="incident-detail-modal-inner">
+        <div class="channel-modal-header">
+          <button class="incident-back-btn" id="incident-back">&larr;</button>
+          <h3>INCIDENT DETAIL</h3>
+          <button class="channel-modal-close" id="incident-detail-close">&times;</button>
+        </div>
+        <div id="incident-detail"></div>
+      </div>
+    </div>
+
+    <!-- Telegram Alerts panel -->
+    <div id="telegram-panel" class="telegram-hidden">
+      <div class="telegram-header">
+        <span class="telegram-icon">✈</span>
+        <span class="telegram-title">TELEGRAM ALERTS</span>
+        <span class="telegram-status" id="telegram-status">CONNECTED</span>
+      </div>
+      <div class="telegram-feed" id="telegram-feed">
+        <div class="telegram-msg telegram-msg-out">
+          <span class="telegram-msg-badge telegram-badge-critical">CRITICAL</span>
+          <span class="telegram-msg-text">Structure fire at 455 Market St — 3 units dispatched, SFFD Tac A2</span>
+          <span class="telegram-msg-time">15:31</span>
+        </div>
+        <div class="telegram-msg telegram-msg-out">
+          <span class="telegram-msg-badge telegram-badge-high">HIGH</span>
+          <span class="telegram-msg-text">Multi-vehicle accident on I-80 WB near Fremont St — EMS responding</span>
+          <span class="telegram-msg-time">15:28</span>
+        </div>
+        <div class="telegram-msg telegram-msg-in">
+          <span class="telegram-msg-text">/status — 12 active incidents, 34 aircraft, 553 Muni vehicles</span>
+          <span class="telegram-msg-time">15:25</span>
+        </div>
+        <div class="telegram-msg telegram-msg-out">
+          <span class="telegram-msg-badge telegram-badge-high">HIGH</span>
+          <span class="telegram-msg-text">Medical emergency — code 2 at 1301 7th Ave, EMS A3 dispatched</span>
+          <span class="telegram-msg-time">15:22</span>
+        </div>
+        <div class="telegram-msg telegram-msg-in">
+          <span class="telegram-msg-text">/query fire near soma — 2 incidents in last 30 min</span>
+          <span class="telegram-msg-time">15:18</span>
+        </div>
+      </div>
+      <div class="telegram-footer">
+        <span class="telegram-footer-stat">23 alerts today</span>
+        <span class="telegram-footer-dot"></span>
+        <span class="telegram-footer-stat">Bot @sf_monitor_bot</span>
+        <button class="telegram-config-btn" id="telegram-config-btn" title="Configure alert zones">&#x2699;</button>
+      </div>
+    </div>
+
+    <!-- Telegram Alert Zone Config modal -->
+    <div id="telegram-zone-modal" class="modal-hidden">
+      <div class="telegram-zone-modal-inner">
+        <div class="channel-modal-header">
+          <h3>ALERT ZONES</h3>
+          <button class="channel-modal-close" id="telegram-zone-close">&times;</button>
+        </div>
+        <div class="telegram-zone-body">
+          <p class="telegram-zone-desc">Define areas of interest. You'll receive Telegram alerts when incidents occur within these zones.</p>
+
+          <div class="telegram-zone-list" id="telegram-zone-list">
+            <div class="telegram-zone-card telegram-zone-active">
+              <div class="telegram-zone-card-header">
+                <span class="telegram-zone-dot" style="background:#3b82f6;"></span>
+                <span class="telegram-zone-name">Office — SoMa</span>
+                <span class="telegram-zone-radius">500m radius</span>
+                <label class="telegram-zone-toggle"><input type="checkbox" checked /><span class="toggle-slider"></span></label>
+              </div>
+              <div class="telegram-zone-card-meta">
+                <span>37.7901, -122.4034</span>
+                <span class="telegram-zone-sep">|</span>
+                <span>Fire, Medical, Police</span>
+              </div>
+              <div class="telegram-zone-card-meta">
+                <span>Min severity: <strong>High</strong></span>
+                <span class="telegram-zone-sep">|</span>
+                <span>4 alerts today</span>
+              </div>
+            </div>
+
+            <div class="telegram-zone-card telegram-zone-active">
+              <div class="telegram-zone-card-header">
+                <span class="telegram-zone-dot" style="background:#f97316;"></span>
+                <span class="telegram-zone-name">Home — Forest Hill</span>
+                <span class="telegram-zone-radius">300m radius</span>
+                <label class="telegram-zone-toggle"><input type="checkbox" checked /><span class="toggle-slider"></span></label>
+              </div>
+              <div class="telegram-zone-card-meta">
+                <span>37.7478, -122.4590</span>
+                <span class="telegram-zone-sep">|</span>
+                <span>All types</span>
+              </div>
+              <div class="telegram-zone-card-meta">
+                <span>Min severity: <strong>Medium</strong></span>
+                <span class="telegram-zone-sep">|</span>
+                <span>11 alerts today</span>
+              </div>
+            </div>
+
+            <div class="telegram-zone-card">
+              <div class="telegram-zone-card-header">
+                <span class="telegram-zone-dot" style="background:#a78bfa;"></span>
+                <span class="telegram-zone-name">Downtown — Financial District</span>
+                <span class="telegram-zone-radius">800m radius</span>
+                <label class="telegram-zone-toggle"><input type="checkbox" /><span class="toggle-slider"></span></label>
+              </div>
+              <div class="telegram-zone-card-meta">
+                <span>37.7946, -122.3999</span>
+                <span class="telegram-zone-sep">|</span>
+                <span>Fire only</span>
+              </div>
+              <div class="telegram-zone-card-meta">
+                <span>Min severity: <strong>Critical</strong></span>
+                <span class="telegram-zone-sep">|</span>
+                <span>Disabled</span>
+              </div>
+            </div>
+          </div>
+
+          <button class="telegram-zone-add-btn" id="telegram-zone-add">
+            <span>+ Draw new zone on map</span>
+          </button>
+
+          <div class="telegram-zone-settings">
+            <h4>DELIVERY</h4>
+            <div class="telegram-zone-setting-row">
+              <span class="telegram-zone-setting-label">Telegram chat</span>
+              <span class="telegram-zone-setting-value">@sf_monitor_bot</span>
+            </div>
+            <div class="telegram-zone-setting-row">
+              <span class="telegram-zone-setting-label">Cooldown</span>
+              <span class="telegram-zone-setting-value">2 min between alerts</span>
+            </div>
+            <div class="telegram-zone-setting-row">
+              <span class="telegram-zone-setting-label">Quiet hours</span>
+              <span class="telegram-zone-setting-value">Off</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ORACLE Chat panel -->
+    <div id="chat-panel" class="chat-collapsed">
+      <div class="chat-header" id="chat-header">
+        <span class="chat-title">ORACLE</span>
+        <span class="chat-status" id="chat-status"></span>
+      </div>
+      <div class="chat-suggestions" id="chat-suggestions"></div>
+      <div class="chat-messages" id="chat-messages"></div>
+      <div class="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Ask about the situation..." autocomplete="off" />
+        <button id="chat-send">&#x2191;</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
