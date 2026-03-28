@@ -15,7 +15,7 @@ flowchart TB
 
         subgraph Agents ["Autonomous Agents"]
             RA["Radio Monitor Agent<br/>40+ talkgroups"]
-            EA["Enrichment Agent<br/>Gemini 2.0 Flash"]
+            EA["Enrichment Agent<br/>Gemini 3 Flash"]
             DFA["Data Fusion Agent<br/>8 live sources"]
             OA["ORACLE Chat Agent<br/>contextual Q&A"]
             NA["Notification Agent<br/>geofenced alerts"]
@@ -81,7 +81,7 @@ All transcripts, dispatch records, aircraft positions, and transit/traffic data 
 Runs trunk-recorder to decode P25 Phase II trunked radio from SF's public safety system. Monitors 40+ talkgroups across SFFD, SFPD, EMS, and mutual aid channels. Automatically transcribes every transmission using faster-whisper and routes messages by talkgroup classification.
 
 ### Enrichment Agent
-Every 5 seconds, Gemini 2.0 Flash analyzes the latest radio traffic plus all other data feeds. It geocodes mentioned addresses, translates scanner codes (10-codes, signal codes), identifies responding units, classifies incident type and severity, and generates situation summaries. Results are persisted to **DigitalOcean OpenSearch** for historical queries.
+Every 5 seconds, Gemini 3 Flash analyzes the latest radio traffic plus all other data feeds. It geocodes mentioned addresses, translates scanner codes (10-codes, signal codes), identifies responding units, classifies incident type and severity, and generates situation summaries. Results are persisted to **DigitalOcean OpenSearch** for historical queries.
 
 ### ORACLE Chat Agent
 An interactive agent embedded in the dashboard. Ask it "What's happening near SoMa?" or "Any fires in the last hour?" and it queries the live world state plus **OpenSearch** historical data to give you a grounded answer. Uses Gemini with full context injection from all active data feeds.
@@ -256,7 +256,7 @@ Open `http://localhost:5173`
 
 **Frontend**: Vite, Mapbox GL, Deck.gl, H3-js, vanilla JS |
 **Backend**: Python asyncio, aiohttp, websockets |
-**AI**: Gemini 2.0 Flash (enrichment + ORACLE), faster-whisper (transcription) |
+**AI**: Gemini 3 Flash (enrichment + ORACLE), faster-whisper (transcription) |
 **Radio**: trunk-recorder (P25 Phase II), GNU Radio, RTL-SDR |
 **Data**: Nexla SDK (511 feeds), DataSF SODA, Airplanes.live, FlightRadar24 |
 **Persistence**: DigitalOcean Managed OpenSearch |
