@@ -2,6 +2,73 @@
 
 An autonomous multi-agent system that perceives the world through radio signals, fuses 10+ real-time data streams, and provides AI-powered situational awareness for San Francisco — all from a MacBook Air with a $25 SDR dongle.
 
+```mermaid
+flowchart TB
+    subgraph HW ["Hardware"]
+        SDR["RTL-SDR Dongle<br/>P25 Radio Scanner"]
+    end
+
+    subgraph Backend ["Python Backend (asyncio)"]
+        direction TB
+        TR["trunk-recorder<br/>P25 Phase II Decoder"]
+        FW["faster-whisper<br/>Speech-to-Text"]
+
+        subgraph Agents ["Autonomous Agents"]
+            RA["Radio Monitor Agent<br/>40+ talkgroups"]
+            EA["Enrichment Agent<br/>Gemini 2.0 Flash"]
+            DFA["Data Fusion Agent<br/>8 live sources"]
+            OA["ORACLE Chat Agent<br/>contextual Q&A"]
+            NA["Notification Agent<br/>geofenced alerts"]
+        end
+
+        subgraph Data ["Data Sources"]
+            direction LR
+            NX["Nexla SDK<br/>511 transit/traffic"]
+            AL["Airplanes.live<br/>ADS-B positions"]
+            FR["FlightRadar24<br/>aircraft classification"]
+            DS["DataSF SODA<br/>fire + police dispatch"]
+        end
+
+        OS[("DigitalOcean<br/>OpenSearch<br/>persistence + search")]
+        API["REST API :8766<br/>Agent Skill interface"]
+        WS["WebSocket :8765<br/>live data feed"]
+    end
+
+    subgraph External ["External Services"]
+        TG["Telegram Bot<br/>DigitalOcean VM<br/>push alerts + queries"]
+        SH["Shipables<br/>Agent Skill Publishing"]
+    end
+
+    subgraph Frontend ["Dashboard (Vite + Mapbox)"]
+        MAP["Live Map<br/>aircraft, dispatch,<br/>radio incidents,<br/>transit, work zones"]
+        CHAT["ORACLE Chat"]
+        RADIO["Radio Feed<br/>+ channel monitor"]
+        INC["Incident Panel<br/>Gemini-enriched"]
+        TPANEL["Telegram Alerts<br/>+ zone config"]
+    end
+
+    SDR -->|"RF signals"| TR
+    TR -->|"audio files"| FW
+    FW -->|"transcripts"| RA
+
+    RA --> EA
+    EA -->|"severity, geocoding,<br/>incident classification"| OS
+    EA --> NA
+    NA -->|"critical/high alerts"| TG
+
+    DFA --- NX & AL & FR & DS
+    DFA --> EA
+
+    OA -->|"historical queries"| OS
+    API --> SH
+
+    RA & EA & DFA --> WS
+    WS --> MAP & RADIO & INC
+    OA --> CHAT
+    API --> Frontend
+    TG -.->|"remote queries"| OA
+```
+
 ## How It Works
 
 The system streams raw RF signals from an **RTL-SDR** device connected to the server. Those streams are decoded via **trunk-recorder** into P25 trunked radio audio and ingested in real time. Audio from police, fire, and Coast Guard scanner channels is transcribed using [**faster-whisper**](https://github.com/SYSTRAN/faster-whisper), a high-performance CTranslate2-based implementation of OpenAI's Whisper model optimized for low-latency streaming transcription.
@@ -24,40 +91,6 @@ Monitors all enriched incidents against user-configured geofenced zones. When a 
 
 ### Data Fusion Agent
 Continuously polls and normalizes data from 8 independent sources into a unified world state: radio transcripts, aircraft positions (ADS-B), fire/police dispatch (DataSF), Muni transit vehicles, traffic work zones, traffic events, and service alerts. All data is piped through **Nexla** for normalization and routing.
-
-## Architecture
-
-```
-                          ┌──────────────────────────────┐
-                          │     TELEGRAM ALERTS          │
-                          │  Geofenced push notifications│
-                          └──────────┬───────────────────┘
-                                     │
-┌────────────────────┐    ┌──────────┴───────────────────────────────────┐
-│  RTL-SDR Dongle    │    │           PYTHON BACKEND (asyncio)           │
-│  P25 Radio Scanner ├───►│                                              │
-│  trunk-recorder    │    │  Radio Agent ──► faster-whisper ──► transcripts│
-└────────────────────┘    │  Enrichment Agent ──► Gemini Flash ──► analysis│
-                          │  Data Fusion Agent ──► polls 8 sources         │
-                          │  ORACLE Agent ──► contextual Q&A               │
-                          │  Notification Agent ──► Telegram webhook        │
-                          │                                              │
-                          │  ┌─ Nexla SDK ─── 511 traffic/transit feeds  │
-                          │  ├─ Airplanes.live ─── ADS-B aircraft        │
-                          │  ├─ FlightRadar24 ─── military/heli/bizjet   │
-                          │  ├─ DataSF SODA ─── fire + police dispatch   │
-                          │  └─ OpenSearch (DO) ─── persistence + search │
-                          │                                              │
-                          │  REST API (:8766) ──► Agent Skill interface  │
-                          │  WebSocket (:8765) ──► Dashboard live feed   │
-                          └──────────┬───────────────────────────────────┘
-                                     │
-                          ┌──────────┴───────────────────┐
-                          │    DASHBOARD (Vite + Mapbox)  │
-                          │  Live map, transcripts, chat  │
-                          │  Layer toggles, incident view │
-                          └──────────────────────────────┘
-```
 
 ## Data Sources
 

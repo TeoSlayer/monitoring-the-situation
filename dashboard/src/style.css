@@ -1442,6 +1442,24 @@ body {
 }
 
 /* ===== TELEGRAM ZONE MODAL ===== */
+#telegram-zone-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  transition: opacity 0.3s;
+}
+
+#telegram-zone-modal.modal-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .telegram-zone-modal-inner {
   background: rgba(12, 12, 20, 0.97);
   backdrop-filter: blur(24px);
