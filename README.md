@@ -1,26 +1,62 @@
 # Monitoring the Situation
 
-Real-time situational awareness dashboard for San Francisco. Fuses P25 trunked radio, aircraft ADS-B, fire/police dispatch, Muni transit, and traffic data into a single live map with LLM-powered analysis.
+An autonomous multi-agent system that perceives the world through radio signals, fuses 10+ real-time data streams, and provides AI-powered situational awareness for San Francisco — all from a MacBook Air with a $25 SDR dongle.
 
-Built at a hackathon with a MacBook Air, an RTL-SDR dongle, and a window facing the city.
+## How It Works
+
+The system streams raw RF signals from an **RTL-SDR** device connected to the server. Those streams are decoded via **trunk-recorder** into P25 trunked radio audio and ingested in real time. Audio from police, fire, and Coast Guard scanner channels is transcribed using [**faster-whisper**](https://github.com/SYSTRAN/faster-whisper), a high-performance CTranslate2-based implementation of OpenAI's Whisper model optimized for low-latency streaming transcription.
+
+All transcripts, dispatch records, aircraft positions, and transit/traffic data are continuously synthesized by **Google Gemini** (DeepMind) into structured events and active threats across San Francisco. Gemini operates with a degree of autonomy — it evaluates severity, correlates signals across data sources, and autonomously triggers push notifications through a **Telegram bot** hosted on a DigitalOcean VM whenever it determines an alert warrants immediate human attention.
+
+## Agents
+
+### Radio Monitor Agent
+Runs trunk-recorder to decode P25 Phase II trunked radio from SF's public safety system. Monitors 40+ talkgroups across SFFD, SFPD, EMS, and mutual aid channels. Automatically transcribes every transmission using faster-whisper and routes messages by talkgroup classification.
+
+### Enrichment Agent
+Every 5 seconds, Gemini 2.0 Flash analyzes the latest radio traffic plus all other data feeds. It geocodes mentioned addresses, translates scanner codes (10-codes, signal codes), identifies responding units, classifies incident type and severity, and generates situation summaries. Results are persisted to **DigitalOcean OpenSearch** for historical queries.
+
+### ORACLE Chat Agent
+An interactive agent embedded in the dashboard. Ask it "What's happening near SoMa?" or "Any fires in the last hour?" and it queries the live world state plus **OpenSearch** historical data to give you a grounded answer. Uses Gemini with full context injection from all active data feeds.
+
+### Notification Agent
+Monitors all enriched incidents against user-configured geofenced zones. When a critical or high-severity event occurs within a watched area, it pushes a formatted alert to Telegram via webhook. Users can also query the system remotely through Telegram commands (`/status`, `/query fire near soma`).
+
+### Data Fusion Agent
+Continuously polls and normalizes data from 8 independent sources into a unified world state: radio transcripts, aircraft positions (ADS-B), fire/police dispatch (DataSF), Muni transit vehicles, traffic work zones, traffic events, and service alerts. All data is piped through **Nexla** for normalization and routing.
 
 ## Architecture
 
 ```
-Browser (Vite + Mapbox GL + Deck.gl)
-        │
-        │ WebSocket :8765
-        ▼
-Python Backend (asyncio + aiohttp)
-   ├── trunk-recorder ──► P25 radio → faster-whisper transcription
-   ├── Airplanes.live  ──► ADS-B aircraft positions
-   ├── FlightRadar24   ──► Military / helicopter / bizjet classification
-   ├── DataSF SODA     ──► Fire + police dispatch calls
-   ├── Nexla SDK       ──► Data integration platform for 511 traffic/transit feeds
-   ├── 511 SF Bay      ──► Muni vehicles + work zones + traffic events
-   ├── Gemini Flash    ──► Enrichment, incident analysis, ORACLE chat
-   ├── OpenSearch (DO) ──► Persistence + historical queries (DigitalOcean managed)
-   └── Telegram Bot    ──► Push alerts for critical incidents + query interface
+                          ┌──────────────────────────────┐
+                          │     TELEGRAM ALERTS          │
+                          │  Geofenced push notifications│
+                          └──────────┬───────────────────┘
+                                     │
+┌────────────────────┐    ┌──────────┴───────────────────────────────────┐
+│  RTL-SDR Dongle    │    │           PYTHON BACKEND (asyncio)           │
+│  P25 Radio Scanner ├───►│                                              │
+│  trunk-recorder    │    │  Radio Agent ──► faster-whisper ──► transcripts│
+└────────────────────┘    │  Enrichment Agent ──► Gemini Flash ──► analysis│
+                          │  Data Fusion Agent ──► polls 8 sources         │
+                          │  ORACLE Agent ──► contextual Q&A               │
+                          │  Notification Agent ──► Telegram webhook        │
+                          │                                              │
+                          │  ┌─ Nexla SDK ─── 511 traffic/transit feeds  │
+                          │  ├─ Airplanes.live ─── ADS-B aircraft        │
+                          │  ├─ FlightRadar24 ─── military/heli/bizjet   │
+                          │  ├─ DataSF SODA ─── fire + police dispatch   │
+                          │  └─ OpenSearch (DO) ─── persistence + search │
+                          │                                              │
+                          │  REST API (:8766) ──► Agent Skill interface  │
+                          │  WebSocket (:8765) ──► Dashboard live feed   │
+                          └──────────┬───────────────────────────────────┘
+                                     │
+                          ┌──────────┴───────────────────┐
+                          │    DASHBOARD (Vite + Mapbox)  │
+                          │  Live map, transcripts, chat  │
+                          │  Layer toggles, incident view │
+                          └──────────────────────────────┘
 ```
 
 ## Data Sources
@@ -39,6 +75,44 @@ Python Backend (asyncio + aiohttp)
 | **OpenSearch** (DigitalOcean) | Historical transcript/enrichment/incident persistence | On ingest |
 | **Telegram Bot** | Push alerts for critical/high-severity incidents, query interface | Real-time |
 
+## Traffic and Transit Data
+
+Traffic and transit feeds for San Francisco are sourced from the **511 SF Bay Open Data API** (Metropolitan Transportation Commission) and ingested through **Nexla dataflows** with dedicated connectors to the 511 REST endpoints. Nexla handles scheduling, normalization, and routing of the raw API responses into the backend pipeline.
+
+### Transit — [511 SF Bay Open Data Specification (Transit)](https://511.org/sites/default/files/pdfs/511%20SF%20Bay%20Open%20Data%20Specification%20-%20Transit.pdf)
+
+The transit spec is a multi-standard REST API combining **SIRI** (Service Interface for Real-time Information) for live data and **GTFS / GTFS-RT** for schedule and bulk feeds. For San Francisco we primarily consume:
+
+- **VehicleMonitoring (SIRI VM)** — real-time Muni vehicle positions, journey progress, delay, and congestion level. This drives the live vehicle layer on the map.
+- **StopMonitoring (SIRI SM)** — real-time arrival/departure predictions at individual stops, including vehicle bearing and occupancy.
+- **GTFS-RT VehiclePositions** — protobuf-encoded vehicle positions as a redundant/fallback feed.
+- **GTFS-RT ServiceAlerts** — active service disruption alerts used to annotate routes on the map.
+
+The Nexla dataflow for transit connects to `api.511.org/transit/`, applies a transformation to normalize SIRI `ServiceDelivery` envelopes and GTFS-RT protobuf payloads into a consistent JSON schema, and delivers records to the backend on a 15-second cadence.
+
+### Traffic — [Open511 Traffic Data Exchange Specification v1.0](https://511.org/sites/default/files/pdfs/Open_511_Data_Exchange_Specification_v1.0_Traffic.pdf)
+
+The traffic spec is a single REST endpoint (`api.511.org/Traffic/Events`) returning **Open511 Event** objects. Each event carries a type (`CONSTRUCTION`, `INCIDENT`, `SPECIAL_EVENT`, `WEATHER_CONDITION`, `ROAD_CONDITION`), a severity level (`MINOR`, `MODERATE`, `MAJOR`), GeoJSON geometry, affected road names with lane state (`CLOSED`, `SOME_LANES_CLOSED`, `ALL_LANES_OPEN`), and impacted systems (road, sidewalk, bike lane). For San Francisco we filter on the `511.org` jurisdiction and active status.
+
+The Nexla dataflow for traffic polls the Events endpoint, applies a transformation to extract and flatten the relevant fields (geometry, severity, road state, schedule), and routes the normalized records into the backend where they feed the traffic event layer and Gemini's situational context.
+
+## Telegram Bot
+
+A dedicated Telegram bot service runs on a **DigitalOcean VM** (separate from the main backend server). Gemini autonomously decides when an incident crosses a severity threshold and pushes structured alert messages to the bot, which delivers them to configured recipients in real time. The bot also functions as a query interface — subscribers can ask natural-language questions about the current situation and receive Gemini-generated responses drawn from live data.
+
+The bot is configured via `TELEGRAM_WEBHOOK_URL` and `TELEGRAM_WEBHOOK_TOKEN` in the `.env`. The DigitalOcean VM runs the bot process independently so alerts remain available even if the main backend is restarted.
+
+## Sponsor Tools
+
+### DigitalOcean — Managed OpenSearch
+All radio transcripts, AI enrichments, and incident records are indexed into a **DigitalOcean Managed OpenSearch** cluster for persistence and full-text historical search. The ORACLE agent queries OpenSearch when users ask about past events. Three indices: `radio-transcripts`, `enrichments`, `incidents`. The Telegram bot also runs on a DigitalOcean VM.
+
+### Nexla — Data Integration Platform
+The **Nexla SDK** provisions and manages REST API data sources pointing at the 511 SF Bay Open Data API. Nexla handles credential management, source activation, and data normalization for 5 feed types: vehicle positions, work zones, traffic events, stop departures, and service alerts. The backend uses Nexla as its data integration layer for all traffic and transit data.
+
+### Shipables — Agent Skill Publishing
+The project publishes a **SKILL.md** agent skill (`sf-situation-monitor`) that lets any compatible AI agent (Claude Code, Cursor, Copilot, etc.) query the system's live REST API — checking aircraft, incidents, transit, radio transcripts, and system status through natural language.
+
 ## Map Layers
 
 - **Aircraft** — colored by class (military red, police yellow, helicopter cyan, bizjet purple) with flight trails
@@ -55,61 +129,53 @@ All layers togglable from the sidebar.
 - Incident panel with Gemini-enriched analysis
 - ORACLE chat — ask natural language questions about the current situation
 - SDR signal stats and frequency activity plot
-- Telegram integration — critical incident push alerts and remote query bot
-- REST API on :8766 for external integrations
+- Telegram integration — critical incident push alerts with configurable geofenced zones
+- REST API on :8766 for external agent integrations
 
-## Prerequisites
+## Agent Skill
+
+The project includes a published agent skill (`sf-situation-monitor/SKILL.md`) that lets any AI coding agent query the system:
 
 ```bash
-brew install cmake gnuradio rtl-sdr uhd libcurl boost openssl
-pip3 install aiohttp websockets python-dotenv requests faster-whisper google-genai
+npx @senso-ai/shipables install TeoSlayer/monitoring-the-situation
 ```
 
-Optional:
-```bash
-pip3 install opensearch-py nexla-sdk python-telegram-bot
-```
+Once installed, an agent can check aircraft, dispatch incidents, transit, radio transcripts, and system health by calling the REST API. See `sf-situation-monitor/SKILL.md` for the full specification.
 
 ## Setup
 
-1. **Build trunk-recorder** (one time):
+### Prerequisites
 ```bash
-cd trunk-recorder/build
-cmake ..
-make -j$(sysctl -n hw.ncpu)
+brew install cmake gnuradio rtl-sdr uhd libcurl boost openssl
+pip3 install aiohttp websockets python-dotenv requests faster-whisper google-genai opensearch-py nexla-sdk
 ```
 
-2. **Install frontend dependencies** (one time):
+### Configuration
+Copy `.env.example` to `.env` and fill in your API keys:
 ```bash
-cd dashboard
-npm install
+cp .env.example .env
 ```
 
-3. **Configure environment** — create `dashboard/backend/.env`:
-```
-GEMINI_API_KEY=your-google-ai-key
-API_511_KEY=your-511-api-key
-TELEGRAM_BOT_TOKEN=your-telegram-bot-token
-TELEGRAM_CHAT_ID=your-chat-id
-```
-
-The Mapbox token is in `dashboard/src/config.js`. FR24 and Airplanes.live tokens are embedded in the backend.
-
-## Run
-
-Start the backend (launches trunk-recorder + all polling + WebSocket server):
+### Build trunk-recorder (one time)
 ```bash
-cd dashboard/backend
-python3 server.py
+cd trunk-recorder/build && cmake .. && make -j$(sysctl -n hw.ncpu)
 ```
 
-Start the frontend dev server:
+### Install frontend dependencies
 ```bash
-cd dashboard
-npm run dev
+cd dashboard && npm install
 ```
 
-Open `http://localhost:5173`.
+### Run
+```bash
+# Terminal 1: Backend (starts trunk-recorder + all agents)
+cd dashboard/backend && python3 server.py
+
+# Terminal 2: Frontend
+cd dashboard && npm run dev
+```
+
+Open `http://localhost:5173`
 
 ## Project Structure
 
@@ -139,8 +205,9 @@ Open `http://localhost:5173`.
 │   ├── index.html
 │   ├── vite.config.js
 │   └── package.json
-├── trunk-recorder/              # P25 trunked radio decoder (C++, builds to build/trunk-recorder)
-├── gr-osmosdr/                  # SDR driver source (GNU Radio OsmoSDR)
+├── sf-situation-monitor/
+│   ├── SKILL.md                 # Agent skill for querying the REST API
+│   └── scripts/status.sh        # Quick status check script
 ├── trunk-recorder-config.json   # RTL-SDR device config + P25 control channels
 ├── talkgroups.csv               # CCSF talkgroup ID → name/group/category mapping
 └── RESEARCH.md                  # Radio frequency research notes
@@ -151,6 +218,17 @@ Open `http://localhost:5173`.
 - MacBook Air (M-series)
 - RTL-SDR v3 dongle ($25) — 24 MHz to 1.766 GHz
 - Antenna pointed at San Francisco from the WorkOS office
+
+## Tech Stack
+
+**Frontend**: Vite, Mapbox GL, Deck.gl, H3-js, vanilla JS |
+**Backend**: Python asyncio, aiohttp, websockets |
+**AI**: Gemini 2.0 Flash (enrichment + ORACLE), faster-whisper (transcription) |
+**Radio**: trunk-recorder (P25 Phase II), GNU Radio, RTL-SDR |
+**Data**: Nexla SDK (511 feeds), DataSF SODA, Airplanes.live, FlightRadar24 |
+**Persistence**: DigitalOcean Managed OpenSearch |
+**Alerts**: Telegram webhook on DigitalOcean VM |
+**Skill**: Shipables.dev (Agent Skills standard)
 
 ## Radio Intelligence Notes
 
